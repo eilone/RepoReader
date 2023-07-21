@@ -140,7 +140,11 @@ def load_and_index_files(repo_path):
 
 def extract_repo_name(repo_url):
     # Extract the part of the URL after the last slash and before .git
-    repo_name = repo_url.split('/')[-1]
+    repo_name = repo_url.rstrip().rstrip('/').split('/')[-1]
+    if len(repo_name) < 2:
+        err_msg = f"Invalid repo URL: {repo_url}"
+        st.error(err_msg)
+        raise ValueError(err_msg)
     if repo_name.endswith('.git'):
         repo_name = repo_name[:-4]  # remove .git from the end
     return repo_name
@@ -184,7 +188,13 @@ def clone_repo(github_url):
     print(f'[LOG] is repo {repo_name} already cloned? {_is_repo_cloned}')
 
     # if the repo is already cloned in the static path, then skip cloning. If not, clone it in the static path
-    repo_condition = clone_github_repo(github_url, os.path.join(local_path, repo_name)) if not _is_repo_cloned else True
+    if _is_repo_cloned:
+        st.success(f'Repo {repo_name} already cloned')
+    else:
+        st.warning(f'Cloning repo {repo_name}...')
+        clone_github_repo(github_url, os.path.join(local_path, repo_name))
+        st.success(f'Repo {repo_name} is now cloned!')
+
 
     return repo_name, _is_repo_cloned
 
@@ -282,10 +292,6 @@ def main(repo_url, num_src_docs, is_reset_history, HARD_RESET_DB=False):
     ### Clone repo from Github
     repo_name, is_repo_cloned = clone_repo(repo_url)
 
-    if is_repo_cloned:
-        st.success(f'Repo {repo_name} already cloned')
-    else:
-        st.warning(f'Repo {repo_name} cloned')
 
     slider = st.slider(
         label='Num of Relevant Docs Input', min_value=1,
@@ -423,6 +429,7 @@ is_reset_history = False
 # Reset Chroma DB? // Usually False
 HARD_RESET_DB = False
 
+
 # ========== #
 
 
@@ -434,6 +441,10 @@ if __name__ == "__main__":
     input_url = st.text_input("GitHub URL", github_url)
     github_url = input_url
 
-    start_btn = st.checkbox("Start Chatting")
+    col1, col2 = st.columns(2)
+
+    start_btn = col1.checkbox("Start Chatting")
+    HARD_RESET_DB = col2.checkbox("Reset Chroma DB?", value=False)
+
     if start_btn:
         main(github_url, NUM_SOURCE_DOCS, is_reset_history, HARD_RESET_DB)
