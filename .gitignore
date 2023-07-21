@@ -1,3 +1,6 @@
 .env
 env
 __pycache__
+db_dwh-data-model-transforms/
+stat_path_repos/
+chroma_db_*/

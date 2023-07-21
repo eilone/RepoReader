@@ -18,14 +18,13 @@ from langchain.llms import OpenAI
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
 from openai.error import InvalidRequestError
+from chromadb.errors import NoIndexException, NotEnoughElementsException
 # from SessionState import get
 
 import streamlit as st
 
 # Get the session state for this session.
 st.session_state['conversation'] = []
-
-
 
 ### Config
 
@@ -37,6 +36,7 @@ GREEN = "\033[32m"
 PURPLE = "\033[35m"
 RED = "\033[31m"
 RESET_COLOR = "\033[0m"
+GREY = "\033[90m"
 
 # LLM vars
 # =========#
@@ -71,6 +71,7 @@ context = """Repo: {repo_name} ({github_url}) | | Conversation history: {convers
 
 local_path = 'stat_path_repos'
 
+
 ### load_and_index_files
 
 
@@ -78,7 +79,7 @@ def load_and_index_files(repo_path):
     #     extensions = ['txt', 'md', 'markdown', 'rst', 'py', 'js', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php', 'scala',
     #                   'html', 'htm', 'xml', 'json', 'yaml', 'yml', 'ini', 'toml', 'cfg', 'conf', 'sh', 'bash', 'css',
     #                   'scss', 'sql', 'gitignore', 'dockerignore', 'editorconfig', 'ipynb']
-    extensions = ['py', 'sql', 'yml']
+    extensions = ['py', 'sql', 'yml', 'md']
     file_type_counts = {}
     documents_dict = {}
 
@@ -190,10 +191,27 @@ def clone_repo(github_url):
 
 ### [Optional] Create it from scratch
 
-def create_vectordb(texts, embedding, persist_directory):
+def create_vectordb(local_path, repo_name, embedding, persist_directory):
+    print('Creating VectorDB from scratch')
+    st.warning('Creating VectorDB from scratch...')
+    ### [Optional] Index the repo files and create the VectorDB if it doesn't exist
+
+    ### Process the repo from local dir
+    texts = load_and_index_files(os.path.join(local_path, repo_name))
+
+    # Embed and store the texts
+    # Supplying a persist_directory will store the embeddings on disk
     vectordb = Chroma.from_documents(documents=texts,
                                      embedding=embedding,
                                      persist_directory=persist_directory)
+    print('VectorDB Created')
+    st.success('VectorDB Created')
+
+    # persiste the db to disk
+    vectordb.persist()
+    vectordb = None
+    print('Persisting VectorDB on local')
+
 
     return vectordb
 
@@ -206,7 +224,6 @@ def reset_history():
 
 
 ### Process answer func
-
 
 
 ## Call the LLM API
@@ -223,7 +240,6 @@ def get_llm_api(model_name, temperature):
 def chat_with_llm_model(query, qa_chain, repo_name, github_url):
     global conversation_history, context
 
-    print(f'\n{PURPLE}QUESTION\n\n{query}{RESET_COLOR}\n')
     print('Thinking...')
 
     kw = {"repo_name": repo_name, "github_url": github_url, "conversation_history": conversation_history, }
@@ -231,18 +247,25 @@ def chat_with_llm_model(query, qa_chain, repo_name, github_url):
     # result, sources = process_llm_response(llm_response)
     result, sources = llm_response['result'], llm_response["source_documents"]
     conversation_history += f'Last Question: {query} \nLast Answer: {result}\n\n'
+
+    # remove duplicates in sources
+    sources = list(set([source.metadata['source'] for source in sources]))
     # print("conversation_history", kw['conversation_history'])
 
     return result, sources
 
+
 def format_question(text):
     return f'<span style="color:purple">{text}</span>'
+
 
 def format_answer(text):
     return f'<span style="color:green">{text}</span>'
 
+
 def format_exception(text):
     return f'<span style="color:red">{text}</span>'
+
 
 def format_source(text):
     return f'<span style="color:grey">{text}</span>'
@@ -251,9 +274,18 @@ def format_source(text):
 ### Main
 
 
-def main(repo_url, num_src_docs, is_reset_history):
+def main(repo_url, num_src_docs, is_reset_history, HARD_RESET_DB=False):
     global LLM_TEMPERATURE, LLM_MODEL_NAME
 
+    if is_reset_history: reset_history()
+
+    ### Clone repo from Github
+    repo_name, is_repo_cloned = clone_repo(repo_url)
+
+    if is_repo_cloned:
+        st.success(f'Repo {repo_name} already cloned')
+    else:
+        st.warning(f'Repo {repo_name} cloned')
 
     slider = st.slider(
         label='Num of Relevant Docs Input', min_value=1,
@@ -261,13 +293,7 @@ def main(repo_url, num_src_docs, is_reset_history):
 
     num_src_docs = slider
 
-
-    if is_reset_history: reset_history()
-
-    ### Clone repo from Github
-    repo_name, is_repo_cloned = clone_repo(repo_url)
-
-    persist_directory = f'db_{repo_name}'
+    persist_directory = f'chroma_db_{repo_name}'
     embedding = OpenAIEmbeddings()
 
     ### Reset our Chroma Vector DB
@@ -278,22 +304,8 @@ def main(repo_url, num_src_docs, is_reset_history):
     except:
         print("No vectordb found. Proceeding...")
 
-    if (not os.path.exists(persist_directory)) or (not (is_repo_cloned)):
-        print('Creating VectorDB from scratch')
-        ### [Optional] Index the repo files and create the VectorDB if it doesn't exist
-
-        ### Process the repo from local dir
-        texts = load_and_index_files(os.path.join(local_path, repo_name))
-
-        # Embed and store the texts
-        # Supplying a persist_directory will store the embeddings on disk
-        vectordb = create_vectordb(texts, embedding, persist_directory)
-        print('VectorDB Created')
-
-        # persiste the db to disk
-        vectordb.persist()
-        vectordb = None
-        print('Persisting VectorDB on local')
+    if (not os.path.exists(persist_directory)) or (not (is_repo_cloned)) or HARD_RESET_DB:
+        create_vectordb(local_path, repo_name, embedding, persist_directory)
 
     # Now we can load the persisted database from disk, and use it as normal
     vectordb = Chroma(persist_directory=persist_directory,
@@ -303,28 +315,20 @@ def main(repo_url, num_src_docs, is_reset_history):
     ### Create a retriever from the indexed DB
     retriever = vectordb.as_retriever(search_kwargs={"k": num_src_docs})
 
-
     st.write("Ask a question about the repository, BE SPECIFIC ('exit' to quit)")
     ## Check the retriever
     try:
         docs = retriever.get_relevant_documents("What is the name of the repo?")
         print(len(docs))
-    except NoIndexException:
-        print('Creating VectorDB from scratch')
-        ### [Optional] Index the repo files and create the VectorDB if it doesn't exist
-
-        ### Process the repo from local dir
-        texts = load_and_index_files(os.path.join(local_path, repo_name))
-
-        # Embed and store the texts
-        # Supplying a persist_directory will store the embeddings on disk
-        vectordb = create_vectordb(texts, embedding, persist_directory)
-        print('VectorDB Created')
-
-        # persiste the db to disk
-        vectordb.persist()
-        vectordb = None
-        print('Persisting VectorDB on local')
+    except Exception as e:
+        if isinstance(e, NoIndexException):
+            create_vectordb(local_path, repo_name, embedding, persist_directory)
+        elif isinstance(e, NotEnoughElementsException):
+            err_msg = f"=== Try reducing the 'Relevant Docs' slider (currently {num_src_docs}) ===\n"
+            st.error(e.__str__())
+            st.write(
+                format_exception(err_msg),
+                unsafe_allow_html=True)
 
     ## Call the LLM API
     turbo_llm = get_llm_api(MODEL_NAME, LLM_TEMPERATURE)
@@ -340,8 +344,6 @@ def main(repo_url, num_src_docs, is_reset_history):
 
     ### START CHATTING!
 
-
-
     conversation = []
 
     # This will hold the current query. Whenever the user submits a new query, it gets added here.
@@ -350,8 +352,12 @@ def main(repo_url, num_src_docs, is_reset_history):
     # Check if the user has entered a new query.
     if query:
         try:
+            print(f'\n{PURPLE}QUESTION\n\n{query}{RESET_COLOR}\n')
             # Perform the chat operation.
             result, sources = chat_with_llm_model(query, qa_chain, repo_name, repo_url)
+            print(f"{GREEN}ANSWER\n\n{result}{RESET_COLOR}\n")
+            for src in sources:
+                print(f"{GREY}SOURCE\n\n{src}{RESET_COLOR}\n")
 
             # Add this interaction to the conversation history.
             st.session_state.conversation.append((query, result, sources))
@@ -359,32 +365,38 @@ def main(repo_url, num_src_docs, is_reset_history):
             # Display the question, answer, and sources.
             st.write(format_question(f"Question: {query}"), unsafe_allow_html=True)
             st.write(format_answer(f"Answer: {result}"), unsafe_allow_html=True)
-            st.subheader("Sources:")
+            # st.subheader("Sources:")
+            # for source in sources:
+            #     st.write(format_source(source.metadata['source']), unsafe_allow_html=True)
+
             for source in sources:
-                st.write(format_source(source.metadata['source']), unsafe_allow_html=True)
+                st.sidebar.markdown(format_source(source), unsafe_allow_html=True)
+
 
         except Exception as e:
             st.write(format_exception(e), unsafe_allow_html=True)
-            if isinstance(e, InvalidRequestError):
-                st.write(format_exception(f"=== Try reducing the 'Relevant Docs' slider (currently {num_src_docs}) ===\n"), unsafe_allow_html=True)
-
+            if isinstance(e, InvalidRequestError) or isinstance(e, NotEnoughElementsException):
+                err_msg = f"=== Try reducing the 'Relevant Docs' slider (currently {num_src_docs}) ===\n"
+                st.write(
+                    format_exception(err_msg),
+                    unsafe_allow_html=True)
 
     # Display the conversation history in the sidebar.
-    formatted_conversation = "\n".join([
-        format_question(f"You: {user_query}") + "<br>" + format_answer(
-            f"Answer: {chat_answer}") + "<br>" + format_source(
-            f"Source: {[source.metadata['source'] for source in sources]}")
-        for user_query, chat_answer, sources in st.session_state.conversation
-    ])
-
-    st.sidebar.markdown(formatted_conversation, unsafe_allow_html=True)
+    # formatted_conversation = "\n".join([
+    #     format_question(f"You: {user_query}") + "<br>" + format_answer(
+    #         f"Answer: {chat_answer}") + "<br>" + format_source(
+    #         f"Source: {[source.metadata['source'] for source in sources]}")
+    #     for user_query, chat_answer, sources in st.session_state.conversation
+    # ])
+    #
+    # st.sidebar.markdown(formatted_conversation, unsafe_allow_html=True)
 
     print('len conversation:', len(conversation))
 
-        #
-        # try:
-        # except:
-        #     pass
+    #
+    # try:
+    # except:
+    #     pass
 
     # st.sidebar.title("Chat History")
     # for user_query, chat_answer, sources in conversation:
@@ -393,8 +405,7 @@ def main(repo_url, num_src_docs, is_reset_history):
     #     for source in sources:
     #         st.sidebar.write(format_source(source.metadata['source']),  unsafe_allow_html=True)
 
-        # break
-
+    # break
 
 
 # User Input
@@ -409,7 +420,20 @@ NUM_SOURCE_DOCS = 20
 # want to reset history?
 is_reset_history = False
 
+# Reset Chroma DB? // Usually False
+HARD_RESET_DB = False
+
+# ========== #
+
+
 
 st.title("Interactive Chat with LLM API")
+st.sidebar.title("Sources")
 
-main(github_url, NUM_SOURCE_DOCS, is_reset_history)
+if __name__ == "__main__":
+    input_url = st.text_input("GitHub URL", github_url)
+    github_url = input_url
+
+    start_btn = st.checkbox("Start Chatting")
+    if start_btn:
+        main(github_url, NUM_SOURCE_DOCS, is_reset_history, HARD_RESET_DB)
