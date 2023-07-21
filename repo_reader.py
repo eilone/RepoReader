@@ -25,8 +25,6 @@ import streamlit as st
 # Get the session state for this session.
 st.session_state['conversation'] = []
 
-
-
 ### Config
 
 # colors
@@ -70,6 +68,7 @@ context = """Repo: {repo_name} ({github_url}) | | Conversation history: {convers
 """
 
 local_path = 'stat_path_repos'
+
 
 ### load_and_index_files
 
@@ -208,7 +207,6 @@ def reset_history():
 ### Process answer func
 
 
-
 ## Call the LLM API
 
 def get_llm_api(model_name, temperature):
@@ -235,14 +233,18 @@ def chat_with_llm_model(query, qa_chain, repo_name, github_url):
 
     return result, sources
 
+
 def format_question(text):
     return f'<span style="color:purple">{text}</span>'
+
 
 def format_answer(text):
     return f'<span style="color:green">{text}</span>'
 
+
 def format_exception(text):
     return f'<span style="color:red">{text}</span>'
+
 
 def format_source(text):
     return f'<span style="color:grey">{text}</span>'
@@ -254,13 +256,11 @@ def format_source(text):
 def main(repo_url, num_src_docs, is_reset_history):
     global LLM_TEMPERATURE, LLM_MODEL_NAME
 
-
     slider = st.slider(
         label='Num of Relevant Docs Input', min_value=1,
         max_value=30, value=num_src_docs, key='docs_slider')
 
     num_src_docs = slider
-
 
     if is_reset_history: reset_history()
 
@@ -303,7 +303,6 @@ def main(repo_url, num_src_docs, is_reset_history):
     ### Create a retriever from the indexed DB
     retriever = vectordb.as_retriever(search_kwargs={"k": num_src_docs})
 
-
     st.write("Ask a question about the repository, BE SPECIFIC ('exit' to quit)")
     ## Check the retriever
     try:
@@ -340,8 +339,6 @@ def main(repo_url, num_src_docs, is_reset_history):
 
     ### START CHATTING!
 
-
-
     conversation = []
 
     # This will hold the current query. Whenever the user submits a new query, it gets added here.
@@ -359,32 +356,38 @@ def main(repo_url, num_src_docs, is_reset_history):
             # Display the question, answer, and sources.
             st.write(format_question(f"Question: {query}"), unsafe_allow_html=True)
             st.write(format_answer(f"Answer: {result}"), unsafe_allow_html=True)
-            st.subheader("Sources:")
+            # st.subheader("Sources:")
+            # for source in sources:
+            #     st.write(format_source(source.metadata['source']), unsafe_allow_html=True)
+
+            st.sidebar.header("Sources")
             for source in sources:
-                st.write(format_source(source.metadata['source']), unsafe_allow_html=True)
+                st.sidebar.markdown(format_source(source.metadata['source']), unsafe_allow_html=True)
+
 
         except Exception as e:
             st.write(format_exception(e), unsafe_allow_html=True)
             if isinstance(e, InvalidRequestError):
-                st.write(format_exception(f"=== Try reducing the 'Relevant Docs' slider (currently {num_src_docs}) ===\n"), unsafe_allow_html=True)
-
+                st.write(
+                    format_exception(f"=== Try reducing the 'Relevant Docs' slider (currently {num_src_docs}) ===\n"),
+                    unsafe_allow_html=True)
 
     # Display the conversation history in the sidebar.
-    formatted_conversation = "\n".join([
-        format_question(f"You: {user_query}") + "<br>" + format_answer(
-            f"Answer: {chat_answer}") + "<br>" + format_source(
-            f"Source: {[source.metadata['source'] for source in sources]}")
-        for user_query, chat_answer, sources in st.session_state.conversation
-    ])
-
-    st.sidebar.markdown(formatted_conversation, unsafe_allow_html=True)
+    # formatted_conversation = "\n".join([
+    #     format_question(f"You: {user_query}") + "<br>" + format_answer(
+    #         f"Answer: {chat_answer}") + "<br>" + format_source(
+    #         f"Source: {[source.metadata['source'] for source in sources]}")
+    #     for user_query, chat_answer, sources in st.session_state.conversation
+    # ])
+    #
+    # st.sidebar.markdown(formatted_conversation, unsafe_allow_html=True)
 
     print('len conversation:', len(conversation))
 
-        #
-        # try:
-        # except:
-        #     pass
+    #
+    # try:
+    # except:
+    #     pass
 
     # st.sidebar.title("Chat History")
     # for user_query, chat_answer, sources in conversation:
@@ -393,8 +396,7 @@ def main(repo_url, num_src_docs, is_reset_history):
     #     for source in sources:
     #         st.sidebar.write(format_source(source.metadata['source']),  unsafe_allow_html=True)
 
-        # break
-
+    # break
 
 
 # User Input
@@ -408,7 +410,6 @@ NUM_SOURCE_DOCS = 20
 
 # want to reset history?
 is_reset_history = False
-
 
 st.title("Interactive Chat with LLM API")
 
