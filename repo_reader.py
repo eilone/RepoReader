@@ -36,6 +36,7 @@ GREEN = "\033[32m"
 PURPLE = "\033[35m"
 RED = "\033[31m"
 RESET_COLOR = "\033[0m"
+GREY = "\033[90m"
 
 # LLM vars
 # =========#
@@ -239,7 +240,6 @@ def get_llm_api(model_name, temperature):
 def chat_with_llm_model(query, qa_chain, repo_name, github_url):
     global conversation_history, context
 
-    print(f'\n{PURPLE}QUESTION\n\n{query}{RESET_COLOR}\n')
     print('Thinking...')
 
     kw = {"repo_name": repo_name, "github_url": github_url, "conversation_history": conversation_history, }
@@ -352,8 +352,12 @@ def main(repo_url, num_src_docs, is_reset_history, HARD_RESET_DB=False):
     # Check if the user has entered a new query.
     if query:
         try:
+            print(f'\n{PURPLE}QUESTION\n\n{query}{RESET_COLOR}\n')
             # Perform the chat operation.
             result, sources = chat_with_llm_model(query, qa_chain, repo_name, repo_url)
+            print(f"{GREEN}ANSWER\n\n{result}{RESET_COLOR}\n")
+            for src in sources:
+                print(f"{GREY}SOURCE\n\n{src}{RESET_COLOR}\n")
 
             # Add this interaction to the conversation history.
             st.session_state.conversation.append((query, result, sources))
