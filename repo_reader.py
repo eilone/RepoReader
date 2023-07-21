@@ -51,7 +51,12 @@ MODEL_NAME = "gpt-3.5-turbo-16k"  # VERIFIED
 # Prompt vars
 # ============#
 
-conversation_history = ""
+if 'conversation_history' not in st.session_state.keys():
+    st.session_state['conversation_history'] = ""
+
+if 'last_q' not in st.session_state.keys():
+    st.session_state['last_q'] = ""
+
 context = """Repo: {repo_name} ({github_url}) | | Conversation history: {conversation_history}
 
             Instructions:
@@ -229,8 +234,7 @@ def create_vectordb(local_path, repo_name, embedding, persist_directory):
 ### Reset history
 
 def reset_history():
-    global conversation_history
-    conversation_history = ""
+    st.session_state['conversation_history'] = ""
 
 
 ### Process answer func
@@ -248,19 +252,20 @@ def get_llm_api(model_name, temperature):
 # Start chatting!
 
 def chat_with_llm_model(query, qa_chain, repo_name, github_url):
-    global conversation_history, context
+    global context
 
     print('Thinking...')
 
-    kw = {"repo_name": repo_name, "github_url": github_url, "conversation_history": conversation_history, }
+    kw = {"repo_name": repo_name, "github_url": github_url, "conversation_history": st.session_state['conversation_history'], }
+    st.session_state.update(kw)
     llm_response = qa_chain(context.format(question=query, **kw))
     # result, sources = process_llm_response(llm_response)
     result, sources = llm_response['result'], llm_response["source_documents"]
-    conversation_history += f'Last Question: {query} \nLast Answer: {result}\n\n'
 
     # remove duplicates in sources
     sources = list(set([source.metadata['source'] for source in sources]))
-    # print("conversation_history", kw['conversation_history'])
+
+    # st.write("conversation_history\n" + kw['conversation_history'])
 
     return result, sources
 
@@ -285,7 +290,7 @@ def format_source(text):
 
 
 def main(repo_url, num_src_docs, is_reset_history, HARD_RESET_DB=False):
-    global LLM_TEMPERATURE, LLM_MODEL_NAME
+    global LLM_TEMPERATURE, LLM_MODEL_NAME, show_history
 
     if is_reset_history: reset_history()
 
@@ -350,18 +355,28 @@ def main(repo_url, num_src_docs, is_reset_history, HARD_RESET_DB=False):
 
     ### START CHATTING!
 
-    conversation = []
 
+    conversation = []
     # This will hold the current query. Whenever the user submits a new query, it gets added here.
     query = st.text_input("Your question:")
 
+    # is query changed?
+    is_query_changed = st.session_state['last_q'] != query
+
+
     # Check if the user has entered a new query.
-    if query:
+    if query and is_query_changed:
         try:
+            st.session_state['last_q'] = query
+            st.session_state['conversation_history'] += f'Last Question: {query} \n'
+
             print(f'\n{PURPLE}QUESTION\n\n{query}{RESET_COLOR}\n')
             # Perform the chat operation.
             result, sources = chat_with_llm_model(query, qa_chain, repo_name, repo_url)
+
+            st.session_state['conversation_history'] += f'Last Answer: {result}\n\n'
             print(f"{GREEN}ANSWER\n\n{result}{RESET_COLOR}\n")
+
             for src in sources:
                 print(f"{GREY}SOURCE\n\n{src}{RESET_COLOR}\n")
 
@@ -386,6 +401,11 @@ def main(repo_url, num_src_docs, is_reset_history, HARD_RESET_DB=False):
                 st.write(
                     format_exception(err_msg),
                     unsafe_allow_html=True)
+
+    # Show history
+    if show_history:
+        st.subheader("Conversation History")
+        st.write(st.session_state['conversation_history'])
 
     # Display the conversation history in the sidebar.
     # formatted_conversation = "\n".join([
@@ -441,10 +461,11 @@ if __name__ == "__main__":
     input_url = st.text_input("GitHub URL", github_url)
     github_url = input_url
 
-    col1, col2 = st.columns(2)
+    start_col, reset_col, history_col = st.columns([1,1,2])
 
-    start_btn = col1.checkbox("Start Chatting")
-    HARD_RESET_DB = col2.checkbox("Reset Chroma DB?", value=False)
+    start_btn = start_col.checkbox("Start Chatting")
+    HARD_RESET_DB = reset_col.checkbox("Reset Chroma DB?", value=False)
+    show_history = history_col.checkbox("Show History", value=False)
 
     if start_btn:
         main(github_url, NUM_SOURCE_DOCS, is_reset_history, HARD_RESET_DB)
