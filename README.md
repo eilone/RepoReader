@@ -28,7 +28,7 @@ Explore and ask questions about a GitHub code repository using OpenAI's GPT, usi
 
 5. Run via streamlit
 ```
-streamlit run repo_reader.py
+streamlit run app.py
 ```
 
 ## Usage
