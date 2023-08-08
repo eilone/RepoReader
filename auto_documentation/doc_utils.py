@@ -116,6 +116,7 @@ def get_doc_from_yml(doc_path, file_name):
         "columns": len(model.get('columns')),
     }
     st.warning(f'Documentation Status for {file_name}')
+    st.write(doc_status)
 
     # get the file's doc in the yml
     return model, doc_status
