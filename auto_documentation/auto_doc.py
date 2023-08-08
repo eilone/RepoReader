@@ -12,6 +12,7 @@ from .doc_utils import (
     get_path_from_table_name,
 )
 from .doc_config import (github_url as GITHUB_URL, stat_path_repos as STAT_PATH_REPOS)
+from .doc_llm import (get_generated_doc)
 
 import os
 import streamlit as st
@@ -46,9 +47,14 @@ def main():
         st.write(dependencies)
 
         # iterate over the dependencies and display the documentation
-        docs = get_documentation_from_dependencies(dependencies, repo_local_path) #todo: iterate over the dependencies and display the documentation
+        docs = get_documentation_from_dependencies(dependencies, repo_local_path)
         st.subheader("Documentation of dependencies")
         st.write(docs)
+
+        # get response from LLM
+        model_input = {"name": selected_file, "code": cleaned_file_content}
+        response = get_generated_doc(model_input, docs)
+        st.write(response)
 
 
 if __name__ == "__main__":
