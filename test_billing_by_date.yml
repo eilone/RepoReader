@@ -1,0 +1,51 @@
+
+- name: billings_by_date
+  description: 'This table aggregates billing data by date. The granularity of the data is at the daily level. The data is sourced from the "subscriptions" and "unified_transactions_revenue_allocation" tables. The table includes columns such as purchase_date, vertical, platform, application, app_real_world_name, purchase_platform, current_subscription_store_country, subscription_duration, month0_late_or_renewal, month0_year0_backlog, payment_origin, product_category, had_trial, is_trial_period, trial_length, is_sol, revenue, adjusted_revenue, gross_revenue, transactions, paid_transactions, refunded_transactions, and eligible_refund_transactions. The table is materialized and partitioned by the purchase_date column. It is clustered by the vertical, purchase_platform, and application columns. The table belongs to the "agg" schema and is labeled as "billings_by_date".'
+  columns:
+  - name: purchase_date
+    description: 'The date of the purchase.'
+  - name: vertical
+    description: 'The application groups by activity. Possible values include retouch/facetune, video, photo, and legacy.'
+  - name: platform
+    description: 'The type of platform the event producer or app is running on. Possible values include ios and android.'
+  - name: application
+    description: 'The internal Lightricks name for the event producer.'
+  - name: app_real_world_name
+    description: 'The external/real world Lightricks name for the app.'
+  - name: purchase_platform
+    description: 'The type of platform that the purchase was made from. Possible values include ios, android, and web.'
+  - name: current_subscription_store_country
+    description: 'The app store country of the purchase in iOS and Android. For Griffin, it represents the current country code that the subscription was purchased from.'
+  - name: subscription_duration
+    description: 'The length of the subscription until the next renewal.'
+  - name: month0_late_or_renewal
+    description: 'Segmentation of the payment based on the attribution date. Possible values include month0, late, and renewal.'
+  - name: month0_year0_backlog
+    description: 'Detailed segmentation of the payment based on the attribution date. Possible values include month0, year0 - late, year0 - renewal, and backlog - late.'
+  - name: payment_origin
+    description: 'The origin of the payment.'
+  - name: product_category
+    description: 'The category of the product. Possible values include subscription and asset.'
+  - name: had_trial
+    description: 'Indicates if this subscription had a trial, including those that are currently in trial.'
+  - name: is_trial_period
+    description: 'Indicates if this transaction is a trial period.'
+  - name: trial_length
+    description: 'The length of the trial.'
+  - name: is_sol
+    description: 'Indicates if the subscription was subscribed on launch.'
+  - name: revenue
+    description: 'The total revenue from the subscription.'
+  - name: adjusted_revenue
+    description: 'The adjusted revenue from the subscription.'
+  - name: gross_revenue
+    description: 'The gross revenue from the subscription.'
+  - name: transactions
+    description: 'The total number of transactions.'
+  - name: paid_transactions
+    description: 'The number of paid transactions.'
+  - name: refunded_transactions
+    description: 'The number of refunded transactions.'
+  - name: eligible_refund_transactions
+    description: 'The number of eligible refund transactions.'
+```

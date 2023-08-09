@@ -97,7 +97,7 @@ def get_documentation_from_path(full_path):
         return None  # Return None if no matching file is found
 
     except FileNotFoundError:
-        st.warning("Error: Directory '{dir_path}' does not exist.")
+        st.warning(f"Error: Directory '{dir_path}' does not exist.")
         return None
 
 def get_doc_from_yml(doc_path, file_name):

@@ -30,7 +30,7 @@ def main():
     selected_file, selected_file_path = display_sql_files(repo_local_path)
     file_full_path = os.path.join(repo_local_path, selected_file_path)
 
-    # set 2 columns
+    # set 2 columns for the comments removal options
     is_remove_commented_source_col, is_remove_commented_code_col = st.columns(2)
     is_remove_commented_source = is_remove_commented_source_col.checkbox("Remove commented sources and refs", value=True)
     is_remove_commented_code = is_remove_commented_code_col.checkbox("Remove commented code", value=False)
@@ -40,7 +40,9 @@ def main():
         selected_file_content = read_file(file_full_path)
 
         cleaned_file_content = remove_comments_from_sql(selected_file_content)
-        st.code(cleaned_file_content if is_remove_commented_code else selected_file_content, language="sql")
+        used_sql_content = cleaned_file_content if is_remove_commented_code else selected_file_content
+
+        st.code(used_sql_content, language="sql")
         dependencies = extract_active_sources_refs(cleaned_file_content, is_remove_commented_source)
 
         st.subheader("Dependencies")
@@ -51,10 +53,17 @@ def main():
         st.subheader("Documentation of dependencies")
         st.write(docs)
 
+        # set option to use examples or not
+        is_use_examples_col, _ = st.columns(2)
+        is_use_examples = is_use_examples_col.checkbox("Train LLM on examples", value=True)
+
         # get response from LLM
-        model_input = {"name": selected_file, "code": cleaned_file_content}
-        response = get_generated_doc(model_input, docs)
-        st.write(response)
+        model_input = {"name": selected_file, "code": used_sql_content}
+        yml_doc, total_tokens = get_generated_doc(model=model_input,
+                                                  deps=docs,
+                                                  is_using_examples=is_use_examples)
+        st.code(yml_doc, language="yaml")
+        st.write(f'total tokens: {total_tokens}')
 
 
 if __name__ == "__main__":
