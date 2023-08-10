@@ -45,6 +45,7 @@ def display_sql_files(directory):
     if selected_file:
         # Print the selected file name (without the path)
         st.markdown(f"You selected: <b>`{selected_file}`</b>", unsafe_allow_html=True)
+        print(f"Selected file: {selected_file}")
     return selected_file, selected_file_path
 
 
@@ -94,15 +95,20 @@ def get_documentation_from_path(full_path):
         for filename in os.listdir(dir_path):
             # Check if the filename matches the pattern "*__models.yml"
             if re.match(r".*__models\.yml$", filename):
-                doc_path = os.path.join(dir_path, filename)
-                doc, doc_status = get_doc_from_yml(doc_path, file_name)
+                yml_doc_path = os.path.join(dir_path, filename)
+                # check if one of the folders is "archive"
+                if 'archive' in yml_doc_path.split('/'):
+                    st.warning(f"Found documentation file in archive folder: `{yml_doc_path}`")
+                    continue
+                st.success(f"Found documentation file: `{yml_doc_path}`")
+                doc, doc_status = get_doc_from_yml(yml_doc_path, file_name)
                 return {'doc': doc, 'doc_status': doc_status}
-
-        return None  # Return None if no matching file is found
+        st.warning(f"No documentation file found in directory '{dir_path}'.")
+        return {}  # Return None if no matching file is found
 
     except FileNotFoundError:
         st.warning(f"Error: Directory '{dir_path}' does not exist.")
-        return None
+        return {}
 
 
 def get_doc_from_yml(doc_path, file_name):
@@ -139,14 +145,14 @@ def get_documentation_from_dependencies(deps, local_repo_path):
     if len(deps['refs']) > 0:
         for dep in deps['refs']:
             docs_dict = get_documentation_from_path(get_path_from_table_name(f'{dep}.sql', local_repo_path))
-            ref_docs[dep] = docs_dict['doc']
+            ref_docs[dep] = docs_dict.get('doc')
 
     # get the documentation for the sources
     src_docs = {}
     if len(deps['sources']) > 0:
         for dep in deps['sources']:
             docs_dict = get_documentation_from_path(get_path_from_table_name(f'{dep}.sql', local_repo_path))
-            src_docs[dep] = docs_dict['doc']
+            src_docs[dep] = docs_dict.get('doc')
 
     return {'refs': ref_docs, 'sources': src_docs}
 
@@ -169,10 +175,16 @@ def get_path_from_table_name(filename, root_dir="."):
     """
     for dirpath, dirnames, filenames in os.walk(root_dir):
         if filename in filenames:
+
+            # check if one of the folders is "archive"
+            if 'archive' in dirnames:
+                st.warning(f"Found MODEL file in ARCHIVE folder: `{filename}`")
+                continue
+
             full_path = os.path.join(dirpath, filename)
             st.success(f"`{filename}` found in: `{full_path}`")
             return full_path
-
+    st.warning(f"File '{filename}' not found in project.")
     return f"File '{filename}' not found in project."
 
 
