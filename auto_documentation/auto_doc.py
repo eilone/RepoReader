@@ -96,6 +96,7 @@ def main():
                                                                  model_name=llm_model,
                                                                  temperature=temperature
                                                                  )
+        st.title("Generated documentation")
         st.code(yml_doc, language="yaml")
         st.write(f'total tokens: {total_tokens}')
 
