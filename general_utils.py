@@ -8,7 +8,11 @@
 import subprocess
 import os
 import streamlit as st
-from general_config import stat_path_repos as STAT_PATH_REPOS
+from general_config import (
+    stat_path_repos as STAT_PATH_REPOS,
+    llm_models as LLM_MODELS,
+    LLM_TEMPERATURE,
+)
 from dotenv import load_dotenv
 
 
@@ -78,3 +82,24 @@ def clone_repo(github_url):
         st.success(f'Repo {repo_name} is now cloned!')
 
     return repo_name, _is_repo_cloned
+
+
+# st radio selection for the llm_model
+def llm_model_selection(root=st):
+    llm_model = root.radio(
+        "Select the language model",
+        LLM_MODELS,
+        index=0
+    )
+    return llm_model
+
+# st slider selection for the temperature
+def temperature_selection(root=st):
+    temperature = root.slider(
+        "Select the temperature (higher is more creative but also less coherent)",
+        min_value=0.0,
+        max_value=1.0,
+        value=LLM_TEMPERATURE,
+        step=0.01
+    )
+    return temperature

@@ -11,21 +11,42 @@ from .doc_utils import (
     get_documentation_from_dependencies,
     read_file,
     get_path_from_table_name,
+    llm_model_selection,
+    temperature_selection,
 
 )
 from .doc_config import (
     GITHUB_URL,
     STAT_PATH_REPOS,
-    )
+)
 from .doc_llm import (get_generated_doc)
 
 import os
 import streamlit as st
 
-def main():
 
+def main():
     st.title("Auto Documentation")
     st.subheader("Select a repo and a file to document")
+
+    # create a sidebar for configuration
+    st.sidebar.title("Configuration")
+
+    # set LLM config
+    st.sidebar.subheader("LLM Config")
+    llm_model = llm_model_selection(st.sidebar)
+    temperature = temperature_selection(st.sidebar)
+
+    # set option to use examples or not
+    is_use_examples_col, _ = st.sidebar.columns(2)
+    is_use_examples = is_use_examples_col.checkbox("Train LLM on examples", value=False)
+
+    st.sidebar.subheader("Code Config")
+    # set 2 columns for the comments removal options
+    is_remove_commented_source_col, is_remove_commented_code_col = st.sidebar.columns(2)
+    is_remove_commented_source = is_remove_commented_source_col.checkbox("Remove commented sources and refs",
+                                                                         value=True)
+    is_remove_commented_code = is_remove_commented_code_col.checkbox("Remove commented code", value=False)
 
     input_url = st.text_input("GitHub URL", GITHUB_URL)
     github_url = input_url.strip()
@@ -38,10 +59,6 @@ def main():
     selected_file, selected_file_path = display_sql_files(repo_local_path)
     file_full_path = os.path.join(repo_local_path, selected_file_path)
 
-    # set 2 columns for the comments removal options
-    is_remove_commented_source_col, is_remove_commented_code_col = st.columns(2)
-    is_remove_commented_source = is_remove_commented_source_col.checkbox("Remove commented sources and refs", value=True)
-    is_remove_commented_code = is_remove_commented_code_col.checkbox("Remove commented code", value=False)
 
     # display the file content and dependencies (sources and refs)
     if selected_file:
@@ -61,15 +78,14 @@ def main():
         st.subheader("Documentation of dependencies")
         st.write(docs)
 
-        # set option to use examples or not
-        is_use_examples_col, _ = st.columns(2)
-        is_use_examples = is_use_examples_col.checkbox("Train LLM on examples", value=False)
-
         # get response from LLM
         model_input = {"name": selected_file, "code": used_sql_content}
         yml_doc, total_tokens, full_response = get_generated_doc(model=model_input,
-                                                  deps=docs,
-                                                  is_using_examples=is_use_examples)
+                                                                 deps=docs,
+                                                                 is_using_examples=is_use_examples,
+                                                                 model_name=llm_model,
+                                                                 temperature=temperature
+                                                                 )
         st.code(yml_doc, language="yaml")
         st.write(f'total tokens: {total_tokens}')
 

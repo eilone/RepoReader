@@ -49,11 +49,11 @@ def get_example_prompt(is_using_examples=True):
         }
 
 
-def get_generated_doc(model, deps, is_using_examples=True):
+def get_generated_doc(model, deps, is_using_examples=True, **kwargs):
     openai.api_key = get_openai_api_key()
     response = openai.ChatCompletion.create(
-        model=LLM_MODEL_NAME,
-        temperature=LLM_TEMPERATURE,
+        model=kwargs.get('model_name', LLM_MODEL_NAME),
+        temperature=kwargs.get('temperature', LLM_TEMPERATURE),
         messages=[
             {"role": "system", "content": PROMPT_SYSTEM},
             {"role": "user", "content": PROMPT_USER.format(
