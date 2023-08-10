@@ -7,7 +7,7 @@ import subprocess
 import glob
 from langchain.document_loaders import DirectoryLoader, NotebookLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from dotenv import load_dotenv
+
 
 from langchain.vectorstores import Chroma
 from langchain.chat_models import ChatOpenAI
@@ -20,7 +20,9 @@ from general_utils import (
     extract_repo_name,
     is_repo_cloned,
     clone_github_repo,
+    clone_repo,
     is_directory_empty,
+    get_openai_api_key,
     )
 from general_config import (github_url, stat_path_repos as STAT_PATH_REPOS)
 
@@ -103,28 +105,6 @@ def process_llm_response(llm_response):
         print(source.metadata['source'])
     return llm_response['result']
 
-
-### Clone repo
-
-def clone_repo(github_url):
-    load_dotenv()
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    repo_name = extract_repo_name(github_url)
-    local_path = STAT_PATH_REPOS
-
-    _is_repo_cloned = is_repo_cloned(github_url, local_path)
-    print(f'[LOG] is repo {repo_name} already cloned? {_is_repo_cloned}')
-
-    # if the repo is already cloned in the static path, then skip cloning. If not, clone it in the static path
-    if _is_repo_cloned:
-        st.success(f'Repo {repo_name} already cloned')
-    else:
-        st.warning(f'Cloning repo {repo_name}...')
-        clone_github_repo(github_url, os.path.join(local_path, repo_name))
-        st.success(f'Repo {repo_name} is now cloned!')
-
-
-    return repo_name, _is_repo_cloned
 
 
 ### [Optional] Create it from scratch

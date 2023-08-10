@@ -18,6 +18,7 @@ from .reader_utils import (
         show_sources,
         chat_with_llm_model,
         print_color,
+        get_openai_api_key,
         )
 from .reader_config import (
         LOCAL_PATH,
@@ -40,7 +41,7 @@ def repo_reader(repo_url, num_src_docs):
     if is_reset_history: reset_history()
 
     ### Clone repo from Github
-    repo_name, is_repo_cloned = clone_repo(repo_url)
+    repo_name, is_repo_cloned, *_ = clone_repo(repo_url)
 
     slider = st.slider(
         label='Num of Relevant Docs Input', min_value=1,
@@ -81,7 +82,7 @@ def repo_reader(repo_url, num_src_docs):
     turbo_llm = get_llm_api(LLM_MODEL_NAME, LLM_TEMPERATURE)
 
     ### Integrate LLM API and source-docs in the Chain
-
+    get_openai_api_key()
     # create the chain to answer questions
     qa_chain = RetrievalQA.from_chain_type(llm=turbo_llm,
                                            chain_type="stuff",

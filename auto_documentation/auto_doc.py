@@ -2,6 +2,7 @@ from .doc_utils import (
     extract_repo_name,
     is_repo_cloned,
     clone_github_repo,
+    clone_repo,
     get_sql_files,
     display_sql_files,
     extract_active_sources_refs,
@@ -10,8 +11,12 @@ from .doc_utils import (
     get_documentation_from_dependencies,
     read_file,
     get_path_from_table_name,
+
 )
-from .doc_config import (github_url as GITHUB_URL, stat_path_repos as STAT_PATH_REPOS)
+from .doc_config import (
+    GITHUB_URL,
+    STAT_PATH_REPOS,
+    )
 from .doc_llm import (get_generated_doc)
 
 import os
@@ -26,6 +31,9 @@ def main():
     github_url = input_url.strip()
 
     repo_name = extract_repo_name(github_url)
+    # clone the repo if it doesn't exist
+    clone_repo(github_url)
+
     repo_local_path = os.path.join(STAT_PATH_REPOS, repo_name)
     selected_file, selected_file_path = display_sql_files(repo_local_path)
     file_full_path = os.path.join(repo_local_path, selected_file_path)
@@ -55,15 +63,18 @@ def main():
 
         # set option to use examples or not
         is_use_examples_col, _ = st.columns(2)
-        is_use_examples = is_use_examples_col.checkbox("Train LLM on examples", value=True)
+        is_use_examples = is_use_examples_col.checkbox("Train LLM on examples", value=False)
 
         # get response from LLM
         model_input = {"name": selected_file, "code": used_sql_content}
-        yml_doc, total_tokens = get_generated_doc(model=model_input,
+        yml_doc, total_tokens, full_response = get_generated_doc(model=model_input,
                                                   deps=docs,
                                                   is_using_examples=is_use_examples)
         st.code(yml_doc, language="yaml")
         st.write(f'total tokens: {total_tokens}')
+
+        st.subheader("Full response")
+        st.write(full_response)
 
 
 if __name__ == "__main__":

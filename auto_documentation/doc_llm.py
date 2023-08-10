@@ -1,5 +1,10 @@
 import openai
 from .llm_examples import EXAMPLES
+from general_utils import (get_openai_api_key,)
+from general_config import (
+    LLM_TEMPERATURE,
+    LLM_MODEL_NAME,
+)
 
 PROMPT_SYSTEM = """
 You are a DBA and a documentation-generating machine, that gets sql logic of a table and its dependencies, 
@@ -20,7 +25,8 @@ understand the table's logic, you can use the dependencies' documentation.
 4. It is important to be descriptive and informative. 
 5. THE OUTPUT FORMAT: a yml file. Remember that the table's documentation should be in the same format as the
 dependencies' YML documentation, as provided in the context.
-6. Return descriptions for all the columns in the table. If you are not sure about the description, live an empty str.
+DO NOT write a desc on every dependency's column, a short general desc on the dependency is enough. 
+6. Return descriptions for ALL the columns in the table. If you are not sure about the description, live an empty str.
 {example_prompt[examples_instructions]}
             
               
@@ -44,9 +50,10 @@ def get_example_prompt(is_using_examples=True):
 
 
 def get_generated_doc(model, deps, is_using_examples=True):
+    openai.api_key = get_openai_api_key()
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo-16k",
-        temperature=0.2,
+        model=LLM_MODEL_NAME,
+        temperature=LLM_TEMPERATURE,
         messages=[
             {"role": "system", "content": PROMPT_SYSTEM},
             {"role": "user", "content": PROMPT_USER.format(
@@ -60,4 +67,4 @@ def get_generated_doc(model, deps, is_using_examples=True):
     yml_doc = response['choices'][0]['message']['content'].strip()
     tokens = response['usage']['total_tokens']
 
-    return yml_doc, tokens
+    return yml_doc, tokens, response

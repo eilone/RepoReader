@@ -8,6 +8,9 @@
 import subprocess
 import os
 import streamlit as st
+from general_config import stat_path_repos as STAT_PATH_REPOS
+from dotenv import load_dotenv
+
 
 # --------------------------------------------- #
 # Github functions
@@ -42,9 +45,36 @@ def clone_github_repo(github_url, local_path):
         print(f"Failed to clone repository: {e}")
         return False
 
+
 def is_directory_empty(directory):
     """
     Returns True if the given directory is empty, otherwise False.
     """
     return not bool(os.listdir(directory))
 
+
+def get_openai_api_key():
+    """
+    Get the OpenAI API key from the .env file
+    :return: the OpenAI API key as a string
+    """
+    load_dotenv()
+    return os.getenv("OPENAI_API_KEY")
+
+### Clone repo
+
+def clone_repo(github_url):
+    repo_name = extract_repo_name(github_url)
+    local_path = STAT_PATH_REPOS
+    _is_repo_cloned = is_repo_cloned(github_url, local_path)
+    print(f'[LOG] is repo {repo_name} already cloned? {_is_repo_cloned}')
+
+    # if the repo is already cloned in the static path, then skip cloning. If not, clone it in the static path
+    if _is_repo_cloned:
+        st.success(f'Repo {repo_name} already cloned')
+    else:
+        st.warning(f'Cloning repo {repo_name}...')
+        clone_github_repo(github_url, os.path.join(local_path, repo_name))
+        st.success(f'Repo {repo_name} is now cloned!')
+
+    return repo_name, _is_repo_cloned

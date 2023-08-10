@@ -3,13 +3,18 @@ import sys
 import re
 import yaml
 import streamlit as st
+
 sys.path.append(r'/Users/eeilstein/Desktop/Code/Python/Repos/RepoReader')  # Provide the absolute path to project_root
 
 from general_utils import (
     extract_repo_name,
     is_repo_cloned,
     clone_github_repo,
-    )
+    clone_repo,
+    get_openai_api_key,
+)
+
+
 
 def get_sql_files(directory):
     """
@@ -63,6 +68,7 @@ def extract_active_sources_refs(sql_text, remove_commented=False):
 
     return {'sources': list(set(sources_list)), 'refs': list(set(refs_list))}
 
+
 def remove_comments_from_sql(sql_text):
     # Remove single-line comments
     sql_without_single_line_comments = re.sub(r"--.*$", "", sql_text, flags=re.MULTILINE)
@@ -76,9 +82,7 @@ def remove_comments_from_sql(sql_text):
     return re.sub(r'\n{2,}', '\n', sql_cleaned.strip())
 
 
-
 def get_documentation_from_path(full_path):
-
     # get file name
     file_name = os.path.basename(full_path)
 
@@ -100,6 +104,7 @@ def get_documentation_from_path(full_path):
         st.warning(f"Error: Directory '{dir_path}' does not exist.")
         return None
 
+
 def get_doc_from_yml(doc_path, file_name):
     # file name without extension
     file_name = file_name.split('.')[0]
@@ -111,16 +116,13 @@ def get_doc_from_yml(doc_path, file_name):
     model = [model for model in
              yml_dict.get('models')
              if model.get('name') == file_name][0]
-    doc_status = {
-        "description_length": len(model.get('description')),
-        "columns": len(model.get('columns')),
-    }
-    st.warning(f'Documentation Status for {file_name}')
+    doc_status = get_documentation_status(model)
+    doc_score = documentation_score(doc_status)
+    st.warning(f'Documentation Status for `{file_name}`: {doc_score[1]} {doc_score[0]}/5')
     st.write(doc_status)
 
     # get the file's doc in the yml
     return model, doc_status
-
 
 
 def get_documentation_from_dependencies(deps, local_repo_path):
@@ -136,13 +138,15 @@ def get_documentation_from_dependencies(deps, local_repo_path):
     ref_docs = {}
     if len(deps['refs']) > 0:
         for dep in deps['refs']:
-            ref_docs[dep] = get_documentation_from_path(get_path_from_table_name(f'{dep}.sql', local_repo_path))
+            docs_dict = get_documentation_from_path(get_path_from_table_name(f'{dep}.sql', local_repo_path))
+            ref_docs[dep] = docs_dict['doc']
 
     # get the documentation for the sources
     src_docs = {}
     if len(deps['sources']) > 0:
         for dep in deps['sources']:
-            src_docs[dep] = get_documentation_from_path(get_path_from_table_name(f'{dep}.sql', local_repo_path))
+            docs_dict = get_documentation_from_path(get_path_from_table_name(f'{dep}.sql', local_repo_path))
+            src_docs[dep] = docs_dict['doc']
 
     return {'refs': ref_docs, 'sources': src_docs}
 
@@ -170,3 +174,62 @@ def get_path_from_table_name(filename, root_dir="."):
             return full_path
 
     return f"File '{filename}' not found in project."
+
+
+def get_documentation_status(doc: dict):
+    """
+    Get the documentation status for a given doc, based on the following criteria:
+    - General description exists
+    - Number of columns
+    - Number of columns with a description longer than 10 characters
+    :param doc: dict
+    :return: doc_name - the name of the doc
+    general_desc_status - True if the doc has a general description, False otherwise
+    num_of_columns - the number of columns in the doc
+    num_of_columns_with_long_desc - the number of columns with a description longer than 10 characters
+    """
+    # get doc name
+    doc_name = doc.get('name')
+
+    # Check if the table has a general description longer than 10 characters
+    general_desc_status = True if "description" in doc and len(doc["description"]) > 10 else False
+
+    # Get the number of columns
+    num_of_columns = len(doc["columns"]) if "columns" in doc else 0
+
+    # Get the number of columns with a description longer than 10 characters
+    num_of_columns_with_long_desc = sum(1 for col in doc.get("columns", []) if len(col.get('description', '')) > 10)
+
+    return {'doc_name': doc_name,
+            'general_desc_status': general_desc_status,
+            'num_of_columns': num_of_columns,
+            'num_of_columns_with_long_desc': num_of_columns_with_long_desc}
+
+
+def documentation_score(doc):
+    _, general_desc_status, num_of_columns, num_of_columns_with_long_desc = doc.values()
+
+    # Scoring rules
+    score = 0
+    if general_desc_status:
+        score += 1
+    score += 0.5 * num_of_columns
+    score += 1 * num_of_columns_with_long_desc
+
+    # Normalize score to fit the 1-5 scale
+    max_score = 1 + 1.5 * num_of_columns  # assuming every column has a description longer than 10 characters
+    print(f'[LOG] Score: {score}, Max Score: {max_score}, general_desc_status: {general_desc_status}')
+    normalized_score = round(5 * (score / max_score), 1)
+
+    # Assign an icon based on the score
+    icons = {
+        0: "❌",  # Red cross (no documentation)
+        1: "🔴",  # Red circle (poor documentation)
+        2: "🟠",  # Orange circle (below average documentation)
+        3: "🟡",  # Yellow circle (average documentation)
+        4: "🟢",  # Green circle (good documentation)
+        5: "✅"  # Blue circle (excellent documentation)
+    }
+
+    return normalized_score, icons[round(normalized_score)]
+
