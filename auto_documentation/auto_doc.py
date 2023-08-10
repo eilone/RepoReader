@@ -13,6 +13,9 @@ from .doc_utils import (
     get_path_from_table_name,
     llm_model_selection,
     temperature_selection,
+    is_show_file_content,
+    is_show_dependencies,
+    is_show_full_response,
 
 )
 from .doc_config import (
@@ -67,7 +70,12 @@ def main():
         cleaned_file_content = remove_comments_from_sql(selected_file_content)
         used_sql_content = cleaned_file_content if is_remove_commented_code else selected_file_content
 
-        st.code(used_sql_content, language="sql")
+        # create 2 columns in the sidebar
+        file_content_col, dependencies_col = st.sidebar.columns(2)
+
+        if is_show_file_content(file_content_col):
+            st.subheader("File content")
+            st.code(used_sql_content, language="sql")
         dependencies = extract_active_sources_refs(cleaned_file_content, is_remove_commented_source)
 
         st.subheader("Dependencies")
@@ -75,8 +83,10 @@ def main():
 
         # iterate over the dependencies and display the documentation
         docs = get_documentation_from_dependencies(dependencies, repo_local_path)
-        st.subheader("Documentation of dependencies")
-        st.write(docs)
+
+        if is_show_dependencies(dependencies_col):
+            st.subheader("Documentation of dependencies")
+            st.write(docs)
 
         # get response from LLM
         model_input = {"name": selected_file, "code": used_sql_content}
@@ -89,8 +99,9 @@ def main():
         st.code(yml_doc, language="yaml")
         st.write(f'total tokens: {total_tokens}')
 
-        st.subheader("Full response")
-        st.write(full_response)
+        if is_show_full_response(st.sidebar):
+            st.subheader("Full response")
+            st.write(full_response)
 
 
 if __name__ == "__main__":

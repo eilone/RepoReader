@@ -247,3 +247,14 @@ def documentation_score(doc):
 
     return normalized_score, icons[round(normalized_score)]
 
+# create a checkbox to show the file content
+def is_show_file_content(root):
+    return root.checkbox("Show SQL content", value=False)
+
+# create a checkbox to show dependencies
+def is_show_dependencies(root):
+    return root.checkbox("Show dependencies", value=False)
+
+# create a checkbox to show full response
+def is_show_full_response(root):
+    return root.checkbox("Show full response", value=False)
