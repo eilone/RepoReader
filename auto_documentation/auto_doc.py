@@ -1,3 +1,5 @@
+import openai
+
 from .doc_utils import (
     extract_repo_name,
     is_repo_cloned,
@@ -16,6 +18,9 @@ from .doc_utils import (
     is_show_file_content,
     is_show_dependencies,
     is_show_full_response,
+    center_column,
+    handle_finish_reason,
+    get_openai_api_key,
 
 )
 from .doc_config import (
@@ -62,8 +67,7 @@ def main():
     selected_file, selected_file_path = display_sql_files(repo_local_path)
     file_full_path = os.path.join(repo_local_path, selected_file_path)
 
-
-    # display the file content and dependencies (sources and refs)
+    # start the process only if a file is selected
     if selected_file:
         selected_file_content = read_file(file_full_path)
 
@@ -88,21 +92,40 @@ def main():
             st.subheader("Documentation of dependencies")
             st.write(docs)
 
-        # get response from LLM
         model_input = {"name": selected_file, "code": used_sql_content}
-        yml_doc, total_tokens, full_response = get_generated_doc(model=model_input,
-                                                                 deps=docs,
-                                                                 is_using_examples=is_use_examples,
-                                                                 model_name=llm_model,
-                                                                 temperature=temperature
-                                                                 )
-        st.title("Generated documentation")
-        st.code(yml_doc, language="yaml")
-        st.write(f'total tokens: {total_tokens}')
+        # button that runs the llm model that generates the documentation
+        if center_column(st.sidebar).button("Generate documentation"):
+            try:
+                # ==================== LLM ==================== #
+                # get response from LLM
+                yml_doc, total_tokens, full_response, finish_reason = get_generated_doc(
+                    model=model_input,
+                    deps=docs,
+                    is_using_examples=is_use_examples,
+                    model_name=llm_model,
+                    temperature=temperature
+                )
+                st.session_state['full_response'] = full_response
+                handle_finish_reason(finish_reason)
 
-        if is_show_full_response(st.sidebar):
+                st.title("Generated documentation")
+                st.code(yml_doc, language="yaml")
+                st.write(f'total tokens: {total_tokens}')
+            except Exception as e:
+                if isinstance(e, openai.error.InvalidRequestError):
+                    # if the error is an invalid request error, usually it means that we have reached the token limit
+                    st.sidebar.error(e.__str__())
+                elif isinstance(e, openai.error.AuthenticationError):
+                    # if the error is an authentication error, it means that the API key is invalid
+                    st.sidebar.error(e.__str__())
+                    if st.sidebar.button("Re-authenticate"):
+                        get_openai_api_key(is_override=True)
+                else:
+                    raise e
+
+        if is_show_full_response(st.sidebar) and st.session_state.full_response:
             st.subheader("Full response")
-            st.write(full_response)
+            st.write(st.session_state.full_response)
 
 
 if __name__ == "__main__":

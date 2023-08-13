@@ -14,8 +14,8 @@ from general_utils import (
     get_openai_api_key,
     llm_model_selection,
     temperature_selection,
+    center_column,
 )
-
 
 
 def get_sql_files(directory):
@@ -53,8 +53,8 @@ def display_sql_files(directory):
 
 def extract_active_sources_refs(sql_text, remove_commented=False):
     # Find all instances of source and ref
-    sources_matches = re.finditer(r"{{\s*source\('([^']+)',\s*'([^']+)'\)\s*}}", sql_text)
-    refs_matches = re.finditer(r"{{\s*ref\(\s*'([^']+)'\s*\)\s*}}", sql_text)
+    sources_matches = re.finditer(r"{{source\('([^']+)','([^']+)'\)}}", sql_text.replace(' ', ''))
+    refs_matches = re.finditer(r"{{ref\('([^']+)'\)}}", sql_text.replace(' ', ''))
 
     if remove_commented:
         # Extract the relevant values from the matches and filter out those that are commented
@@ -73,11 +73,15 @@ def extract_active_sources_refs(sql_text, remove_commented=False):
 
 
 def remove_comments_from_sql(sql_text):
-    # Remove single-line comments
-    sql_without_single_line_comments = re.sub(r"--.*$", "", sql_text, flags=re.MULTILINE)
+    # Remove lines that are entirely single-line comments
+    sql_without_single_line_comments = re.sub(r"^\s*--.*$", "", sql_text, flags=re.MULTILINE)
 
-    # Remove multi-line comments
-    sql_no_comments = re.sub(r"/\*.*?\*/", "", sql_without_single_line_comments, flags=re.DOTALL)
+    # Remove lines that are entirely multi-line comments
+    # First, split the text into lines
+    lines = sql_without_single_line_comments.split('\n')
+    # Then, filter out lines that start and end with multi-line comment tokens
+    lines = [line for line in lines if not (line.strip().startswith("/*") and line.strip().endswith("*/"))]
+    sql_no_comments = '\n'.join(lines)
 
     # Replace any sequence of three or more newlines with just two newlines
     sql_cleaned = re.sub(r'\n{3,}', '\n\n', sql_no_comments.strip())
@@ -113,6 +117,29 @@ def get_documentation_from_path(full_path):
         return {}
 
 
+def clean_model(model):
+    """
+    Remove unnecessary keys from the model dict
+    When there is a sub-dict of a column as follows:
+
+    column:
+        name: column_name
+        description: ""
+
+    Remove the description key and return:
+
+    column:
+        name: column_name
+
+    :param model:dict
+    :return:model:dict
+    """
+    for column in model.get('columns'):
+        if column.get('description') == "":
+            del column['description']
+    return model
+
+
 def get_doc_from_yml(doc_path, file_name):
     # file name without extension
     file_name = file_name.split('.')[0]
@@ -124,6 +151,7 @@ def get_doc_from_yml(doc_path, file_name):
     model = [model for model in
              yml_dict.get('models')
              if model.get('name') == file_name][0]
+    model = clean_model(model)
     doc_status = get_documentation_status(model)
     doc_score = documentation_score(doc_status)
     st.warning(f'Documentation Status for `{file_name}`: {doc_score[1]} {doc_score[0]}/5')
@@ -221,7 +249,7 @@ def get_documentation_status(doc: dict):
 
 
 def documentation_score(doc):
-    _, general_desc_status, num_of_columns, num_of_columns_with_long_desc = doc.values()
+    doc_name, general_desc_status, num_of_columns, num_of_columns_with_long_desc = doc.values()
 
     # Scoring rules
     score = 0
@@ -232,7 +260,7 @@ def documentation_score(doc):
 
     # Normalize score to fit the 1-5 scale
     max_score = 1 + 1.5 * num_of_columns  # assuming every column has a description longer than 10 characters
-    print(f'[LOG] Score: {score}, Max Score: {max_score}, general_desc_status: {general_desc_status}')
+    print(f'[LOG] Nane: {doc_name}, Score: {score}, Max Score: {max_score}, general_desc_status: {general_desc_status}')
     normalized_score = round(5 * (score / max_score), 1)
 
     # Assign an icon based on the score
@@ -247,14 +275,24 @@ def documentation_score(doc):
 
     return normalized_score, icons[round(normalized_score)]
 
+
 # create a checkbox to show the file content
 def is_show_file_content(root):
     return root.checkbox("Show SQL content", value=False)
+
 
 # create a checkbox to show dependencies
 def is_show_dependencies(root):
     return root.checkbox("Show dependencies", value=False)
 
+
 # create a checkbox to show full response
 def is_show_full_response(root):
     return root.checkbox("Show full response", value=False)
+
+
+def handle_finish_reason(finish_reason):
+    if finish_reason == "success":
+        st.sidebar.success("Documentation generated successfully!")
+    elif finish_reason == "length":
+        st.sidebar.warning("Documentation generated successfully but it was too long!")

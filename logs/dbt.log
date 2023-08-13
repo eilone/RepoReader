@@ -1,0 +1,14 @@
+[0m10:25:54.903598 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7f9679915670>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7f96889b06a0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7f96889b08e0>]}
+
+
+============================== 10:25:54.907678 | 3c06245f-696f-47e8-bcf5-15fb93566a8b ==============================
+[0m10:25:54.907678 [info ] [MainThread]: Running with dbt=1.5.2
+[0m10:25:54.908152 [debug] [MainThread]: running dbt with arguments {'printer_width': '80', 'indirect_selection': 'eager', 'write_json': 'True', 'log_cache_events': 'False', 'partial_parse': 'True', 'cache_selected_only': 'False', 'profiles_dir': '/Users/eeilstein/.dbt', 'debug': 'False', 'fail_fast': 'False', 'log_path': 'logs', 'warn_error': 'None', 'version_check': 'True', 'use_colors': 'True', 'use_experimental_parser': 'False', 'no_print': 'None', 'quiet': 'False', 'warn_error_options': 'WarnErrorOptions(include=[], exclude=[])', 'introspect': 'True', 'log_format': 'default', 'static_parser': 'True', 'target_path': 'None', 'send_anonymous_usage_stats': 'True'}
+[0m10:25:54.908609 [error] [MainThread]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path /Users/eeilstein/Desktop/Code/Python/Repos/RepoReader/dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m10:25:54.909379 [debug] [MainThread]: Command `dbt run` failed at 10:25:54.909026 after 0.05 seconds
+[0m10:25:54.909676 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7f9679915670>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7f96889b06a0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7f96889b02b0>]}
+[0m10:25:54.909930 [debug] [MainThread]: Flushing usage events

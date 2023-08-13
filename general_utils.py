@@ -57,12 +57,12 @@ def is_directory_empty(directory):
     return not bool(os.listdir(directory))
 
 
-def get_openai_api_key():
+def get_openai_api_key(is_override=False):
     """
     Get the OpenAI API key from the .env file
     :return: the OpenAI API key as a string
     """
-    load_dotenv()
+    load_dotenv(override=is_override)
     return os.getenv("OPENAI_API_KEY")
 
 ### Clone repo
@@ -103,3 +103,7 @@ def temperature_selection(root=st):
         step=0.01
     )
     return temperature
+
+# create a center streamlit column
+def center_column(root=st):
+    return root.columns([1, 3, 2])[1]

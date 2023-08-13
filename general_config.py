@@ -5,7 +5,7 @@ stat_path_repos = 'stat_path_repos'
 
 # LLM vars
 # ============================== #
-LLM_TEMPERATURE = 0.1
+LLM_TEMPERATURE = 0.2
 
 llm_models = [
     "gpt-3.5-turbo-16k",

@@ -3,3 +3,4 @@ env
 __pycache__
 stat_path_repos/
 chroma_db/
+sandbox.py
